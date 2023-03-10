@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:gsheets/gsheets.dart';
 import 'package:logger/logger.dart';
+import 'package:intl/intl.dart';
+import 'package:pinch_zoom/pinch_zoom.dart';
+import 'package:zoom_widget/zoom_widget.dart';
 
 var logger = Logger(
   printer: PrettyPrinter(),
@@ -38,10 +41,11 @@ class WeeklyTable extends StatelessWidget {
       appBar: AppBar(
         title: Text('Table Example'),
       ),
-      body: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: const MakeTable(),
-
+      body: Zoom(
+          initTotalZoomOut: true,
+          child: Container(
+            child: const MakeTable(),
+          )
       )
     );
   }
@@ -52,88 +56,61 @@ class MakeTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    /* 컬럼만들기 */
+    // 요일 가져오기
+    List<String> weekly = getWeekly();
+
+    /* 로우만들기 */
+    // 시간 가져오기
+    List<String> timeList = getTimeList(22);
 
     // 구글시트 읽기
-    //setDataCol();
-    // 컬럼만들기
-    setWeekly();
+    setDataCol();
 
-    // 로우만들기
+
 
     // 시트 매칭
 
     return DataTable(
-
-      columns: const <DataColumn>[
+      dataRowHeight: 50,
+      columns: <DataColumn>[
         DataColumn(
           label: Expanded(
             child: Text(
-              'Name',
+              '',
               style: TextStyle(fontStyle: FontStyle.italic),
             ),
           ),
         ),
-        DataColumn(
-          label: Expanded(
-            child: Text(
-              'Age',
-              style: TextStyle(fontStyle: FontStyle.italic),
+        for (int i=0; i<weekly.length; i++)
+          DataColumn(
+            label: Expanded(
+              child: Text(
+                weekly[i],
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
             ),
           ),
-        ),
-        DataColumn(
-          label: Expanded(
-            child: Text(
-              'Role',
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-          ),
-        ),
-        DataColumn(
-          label: Expanded(
-            child: Text(
-              'TEST4',
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-          ),
-        ),
-        DataColumn(
-          label: Expanded(
-            child: Text(
-              'TEST5',
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-          ),
-        ),
       ],
       rows: <DataRow>[
-        DataRow(
-          cells: <DataCell>[
-            DataCell(TextField(controller: TextEditingController(text: "초기값"))),
-            DataCell(Text('19')),
-            DataCell(Text('Student')),
-            DataCell(Text('Student')),
-            DataCell(Text('Student')),
-          ],
-        ),
-        DataRow(
-          cells: <DataCell>[
-            DataCell(Text('Janine')),
-            DataCell(Text('43')),
-            DataCell(Text('Professor')),
-            DataCell(Text('Professor')),
-            DataCell(Text('Professor')),
-          ],
-        ),
-        DataRow(
-          cells: <DataCell>[
-            DataCell(Text('William')),
-            DataCell(Text('27')),
-            DataCell(Text('Associate Professor')),
-            DataCell(Text('Associate Professor')),
-            DataCell(Text('Associate Professor')),
-          ],
-        ),
+        for (int i=0; i<timeList.length; i++)
+          DataRow(
+            cells: <DataCell>[
+              DataCell(
+                  Container(
+                      width: 60,
+                      child: Text(timeList[i],
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                  )
+              ),
+              for (int i=0; i<weekly.length; i++)
+              DataCell(TextField(controller: TextEditingController(text: 'Student')))
+            ],
+          ),
       ],
     );
   }
@@ -144,21 +121,33 @@ class MakeTable extends StatelessWidget {
 
   }
 
-  void setWeekly() {
-    List<String> weekly = ['월', '화', '수', '목', '금', '토', '일'];
+  List<String> getWeekly() {
+    List<String> dayList = ['월', '화', '수', '목', '금', '토', '일'];
+    List<String> colNmList = [];
     DateTime now = DateTime.now();
     int currentDay = now.weekday;
 
-    for (var i=0; i<weekly.length; i++) {
-
-
-
+    for (int i=0; i<dayList.length; i++) {
       DateTime firstDayOfWeek = now.subtract(Duration(days: currentDay-i - 1));
-
-
-
-      print('${weekly[i]}: ${firstDayOfWeek.month} / ${firstDayOfWeek.day}');
+      String mergeDay = "${firstDayOfWeek.month}/${firstDayOfWeek.day}(${dayList[i]})";
+      colNmList.add(mergeDay);
     }
+
+    return colNmList;
+  }
+
+  List<String> getTimeList(int finalHour) {
+    DateTime now = DateTime.now();
+    DateTime initTime = new DateTime(now.year, now.month, now.day, 08, 00, 00);
+    List<String> timeList = [];
+
+    do {
+      initTime = initTime.add(Duration(minutes: 30));
+      String timeFormat = DateFormat("a hh:mm").format(initTime);
+      timeList.add(timeFormat);
+    } while(initTime.hour < finalHour);
+
+    return timeList;
   }
 
   void setDataCol() async {
@@ -167,23 +156,21 @@ class MakeTable extends StatelessWidget {
     // fetch spreadsheet by its id
     final ss = await gsheets.spreadsheet(_spreadsheetId);
 
-    // var sheet = await ss.worksheetByTitle('2/27-3/5');
-    var sheet = await ss.worksheetById(248829237);
+    var sheet = await ss.worksheetByTitle('2/27-3/5');
+    // var sheet = await ss.worksheetById(248829237);
 
     if (sheet != null) {
-      Future<List<List<Cell>>> allCols = sheet.cells.allRows();
+      Future<List<List<Cell>>> data = sheet.cells.allRows(fromRow: 5, fromColumn: 3);
 
-      allCols.asStream().forEach((cols) {
+      data.asStream().forEach((cols) {
         cols.forEach((col) {
           col.forEach((element) {
             // if (!element.value.contains("(민영)") || '' == element.value) {
-              // element.value = '';
+            //   element.value = '';
             // }
-            // print('${element.row} : ${element.column} => ${element.value}');
+            print('${element.row-3} : ${element.column-1} => ${element.value}');
           });
-          print(col);
         });
-        print(cols);
       });
 
     }

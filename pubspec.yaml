@@ -39,6 +39,9 @@ dependencies:
   excel: 2.0.1
   gsheets: ^0.4.2
   logger: ^1.2.2
+  intl: ^0.18.0
+  pinch_zoom: ^1.0.0
+  zoom_widget: ^2.0.0
 
 dev_dependencies:
   flutter_test:
